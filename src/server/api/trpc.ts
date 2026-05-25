@@ -1,35 +1,19 @@
-/**
- * YOU PROBABLY DON'T NEED TO EDIT THIS FILE, UNLESS:
- * 1. You want to modify request context (see Part 1).
- * 2. You want to create a new middleware or type of procedure (see Part 3).
- *
- * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
- * need to use are documented accordingly near the end.
- */
-
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
-
+import { auth } from "@clerk/nextjs/server";
 import { db } from "@/server/db";
 
-/**
- * 1. CONTEXT
- */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-  // Пока session = null, позже добавим Clerk
-  const session = null;
+  const { userId } = await auth();
 
   return {
     db,
-    session,
+    userId,
     ...opts,
   };
 };
 
-/**
- * 2. INITIALIZATION
- */
 const t = initTRPC.context<typeof createTRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
@@ -47,32 +31,27 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 export const createCallerFactory = t.createCallerFactory;
 export const createTRPCRouter = t.router;
 
-/**
- * Timing middleware
- */
 const timingMiddleware = t.middleware(async ({ next, path }) => {
   const start = Date.now();
-
   if (t._config.isDev) {
     const waitMs = Math.floor(Math.random() * 400) + 100;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
-
   const result = await next();
   const end = Date.now();
   console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
-
   return result;
 });
 
-/**
- * Public procedure (доступно всем)
- */
 export const publicProcedure = t.procedure.use(timingMiddleware);
 
-/**
- * Protected procedure - пока временно убираем проверку,
- * потому что используем Clerk для аутентификации.
- * Позже настроим правильную интеграцию.
- */
-export const protectedProcedure = t.procedure.use(timingMiddleware);
+const isAuthenticated = t.middleware(({ ctx, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  return next({ ctx: { userId: ctx.userId } });
+});
+
+export const protectedProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(isAuthenticated);
