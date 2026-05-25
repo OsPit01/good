@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { TRPCReactProvider } from "@/trpc/react"; // 👈 ЭТА СТРОЧКА ДОЛЖНА БЫТЬ
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -13,7 +14,13 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body>{children}</body>
+        <body>
+          <TRPCReactProvider>
+            {" "}
+            {/* 👈 ЭТО ДОЛЖНО БЫТЬ ВНУТРИ body */}
+            {children}
+          </TRPCReactProvider>
+        </body>
       </html>
     </ClerkProvider>
   );

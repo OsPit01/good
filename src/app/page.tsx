@@ -2,10 +2,21 @@
 
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { api } from "@/trpc/react"; // 👈 1. ДОБАВИТЬ - импорт tRPC
+import { useState } from "react"; // 👈 2. ДОБАВИТЬ - для работы с формой
 
 export default function Home() {
   const { isSignedIn, userId } = useAuth();
-
+  //  запрос на получение постов (как в видео)
+  const { data: latestPost } = api.post.getLatest.useQuery();
+  const { data: posts } = api.post.getAll.useQuery();
+  // для создания нового поста
+  const [name, setName] = useState("");
+  const createPost = api.post.create.useMutation({
+    onSuccess: () => {
+      setName("");
+    },
+  }); // очищаем форму после успешного создания
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
@@ -27,6 +38,11 @@ export default function Home() {
               </SignInButton>
             )}
           </div>
+        </div>
+        <div>
+          {posts?.map((post) => (
+            <div key={post.id}> {post.name} </div>
+          ))}
         </div>
       </div>
     </main>
